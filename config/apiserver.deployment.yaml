@@ -1,0 +1,158 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-apiserver
+  namespace: apiserver-test
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: kube-apiserver
+  template:
+    metadata:
+      labels:
+        app: kube-apiserver
+    spec:
+      containers:
+      - name: kine
+        image: docker.io/rancher/kine:v0.7.2-amd64
+        args:
+        - --endpoint=postgres://postgres:postgres@postgres.apiserver-test.svc.cluster.local:5432/postgres?sslmode=disable
+        ports:
+        - containerPort: 2379
+          name: https
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+      - command:
+        - kube-apiserver
+        - --advertise-address=$(POD_IP)
+        - --service-cluster-ip-range=10.96.0.0/16
+        - --etcd-servers=http://127.0.0.1:2379
+        - --service-account-issuer=https://kubernetes.default.svc.cluster.local
+        - --service-account-signing-key-file=/sa-certs/tls.key
+        - --service-account-key-file=/sa-certs/tls.crt
+
+        - --client-ca-file=/sa-certs/ca.crt
+
+        - --secure-port=6443
+
+        - --enable-garbage-collector=false
+        - --service-account-lookup=false
+
+        - --authorization-mode=Webhook
+        - --authorization-webhook-config-file=/kubeconfig/kubeconfig
+
+        - --tls-cert-file=/sa-certs/tls.crt
+        - --tls-private-key-file=/sa-certs/tls.key
+
+        # - --runtime-config=api/all=false,apiextensions.k8s.io/v1=true
+        # - --enable-admission-plugins=NamespaceAutoProvision
+        
+        # - --allow-privileged=true
+        # - --authorization-mode=Node,RBAC
+        # - --client-ca-file=/etc/kubernetes/pki/ca.crt
+        # - --enable-admission-plugins=NodeRestriction
+        # - --enable-bootstrap-token-auth=true
+        # - --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt
+        # - --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
+        # - --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
+        # - --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
+        # - --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
+        # - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+        # - --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt
+        # - --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key
+        # - --requestheader-allowed-names=front-proxy-client
+        # - --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt
+        # - --requestheader-extra-headers-prefix=X-Remote-Extra-
+        # - --requestheader-group-headers=X-Remote-Group
+        # - --requestheader-username-headers=X-Remote-User
+        # - --runtime-config=
+        # - --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
+        # - --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: k8s.gcr.io/kube-apiserver:v1.20.2
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 8
+          httpGet:
+            host: 127.0.0.1
+            path: /livez
+            port: 6443
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 15
+        name: kube-apiserver
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            host: 127.0.0.1
+            path: /readyz
+            port: 6443
+            scheme: HTTPS
+          periodSeconds: 1
+          successThreshold: 1
+          timeoutSeconds: 15
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1Gi
+        startupProbe:
+          failureThreshold: 24
+          httpGet:
+            host: 127.0.0.1
+            path: /livez
+            port: 6443
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 15
+        volumeMounts:
+        - mountPath: /kubeconfig
+          name: kubeconfig
+        - mountPath: /etc/ssl/certs
+          name: ca-certs
+          readOnly: true
+        - mountPath: /sa-certs
+          name: sa-certs
+          readOnly: true
+        - mountPath: /etc/ca-certificates
+          name: etc-ca-certificates
+          readOnly: true
+        - mountPath: /etc/kubernetes/pki
+          name: k8s-certs
+          readOnly: true
+        - mountPath: /usr/local/share/ca-certificates
+          name: usr-local-share-ca-certificates
+          readOnly: true
+        - mountPath: /usr/share/ca-certificates
+          name: usr-share-ca-certificates
+          readOnly: true
+      terminationGracePeriodSeconds: 5
+      volumes:
+      - name: sa-certs
+        secret:
+          secretName: apiserver-tls
+      - name: kubeconfig
+        secret:
+          secretName: kubeconfig
+      - name: ca-certs
+        emptyDir: {}
+      - name: etc-ca-certificates
+        emptyDir: {}
+      - name: k8s-certs
+        emptyDir: {}
+      - name: usr-local-share-ca-certificates
+        emptyDir: {}
+      - name: usr-share-ca-certificates
+        emptyDir: {}

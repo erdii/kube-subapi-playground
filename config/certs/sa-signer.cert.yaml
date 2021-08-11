@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: sa-signer
+spec:
+  secretName: sa-signer-tls
+  duration: 216000h # 9000d
+  renewBefore: 360h # 15d
+  isCA: true
+  commonName: sa-signer
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  # usages:
+  #   - server auth
+  #   - client auth
+  issuerRef:
+    name: ca-issuer
+    kind: Issuer
+    group: cert-manager.io

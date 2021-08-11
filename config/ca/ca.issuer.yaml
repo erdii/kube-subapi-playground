@@ -2,7 +2,6 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: ca-issuer
-  namespace: apiserver-test
 spec:
   ca:
     secretName: ca-key-pair

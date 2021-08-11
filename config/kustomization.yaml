@@ -1,0 +1,9 @@
+resources:
+- ca/ca.issuer.yaml
+- ca/ca.secret.yaml
+- certs/sa-signer.cert.yaml
+- certs/apiserver.cert.yaml
+- certs/client.cert.yaml
+- certs/parent-kubeconfig.secret.yaml
+- apiserver/deployment.yaml
+- apiserver/service.yaml

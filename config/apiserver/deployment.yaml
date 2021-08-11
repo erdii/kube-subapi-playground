@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apiserver
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: apiserver
+  template:
+    metadata:
+      labels:
+        app: apiserver
+    spec:
+      containers:
+      - name: postgres
+        image: docker.io/postgres:13.3
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        env:
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+          - mountPath: /var/lib/postgresql/data
+            name: data
+      - name: kine
+        image: docker.io/rancher/kine:v0.7.2-amd64
+        args:
+        - --endpoint=postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
+        ports:
+        - containerPort: 2379
+          name: https
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+      - command:
+        - kube-apiserver
+        - --secure-port=6443
+        - --advertise-address=$(POD_IP)
+        - --etcd-servers=http://127.0.0.1:2379
+        - --service-cluster-ip-range=10.96.0.0/16
+        - --service-account-issuer=https://kubernetes.default.svc.cluster.local
+        - --service-account-signing-key-file=/sa-signer-cert/tls.key
+        - --service-account-key-file=/sa-signer-cert/tls.crt
+
+        - --client-ca-file=/sa-signer-cert/ca.crt
+
+        - --enable-garbage-collector=false
+        - --service-account-lookup=false
+
+        - --authorization-mode=Webhook
+        - --authorization-webhook-config-file=/parent-kubeconfig/kubeconfig
+
+        - --tls-cert-file=/apiserver-cert/tls.crt
+        - --tls-private-key-file=/apiserver-cert/tls.key
+
+        # - --runtime-config=api/all=false,apiextensions.k8s.io/v1=true
+        # - --enable-admission-plugins=NamespaceAutoProvision
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: k8s.gcr.io/kube-apiserver:v1.20.2
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 8
+          httpGet:
+            host: 127.0.0.1
+            path: /livez
+            port: 6443
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 15
+        name: kube-apiserver
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            host: 127.0.0.1
+            path: /readyz
+            port: 6443
+            scheme: HTTPS
+          periodSeconds: 1
+          successThreshold: 1
+          timeoutSeconds: 15
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1Gi
+        startupProbe:
+          failureThreshold: 24
+          httpGet:
+            host: 127.0.0.1
+            path: /livez
+            port: 6443
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 15
+        volumeMounts:
+        - mountPath: /parent-kubeconfig
+          name: parent-kubeconfig
+        - mountPath: /apiserver-cert
+          name: apiserver-cert
+        - mountPath: /sa-signer-cert
+          name: sa-signer-cert
+      terminationGracePeriodSeconds: 5
+      volumes:
+      - name: sa-signer-cert
+        secret:
+          secretName: sa-signer-tls
+      - name: apiserver-cert
+        secret:
+          secretName: apiserver-tls
+      - name: parent-kubeconfig
+        secret:
+          secretName: parent-kubeconfig
+      - name: data
+        emptyDir: {}

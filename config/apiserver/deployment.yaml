@@ -15,26 +15,10 @@ spec:
         app: apiserver
     spec:
       containers:
-      - name: postgres
-        image: docker.io/postgres:13.3
-        resources:
-          limits:
-            memory: "128Mi"
-            cpu: "500m"
-        env:
-        - name: PGDATA
-          value: /var/lib/postgresql/data/pgdata
-        - name: POSTGRES_PASSWORD
-          value: postgres
-        ports:
-        - containerPort: 5432
-        volumeMounts:
-          - mountPath: /var/lib/postgresql/data
-            name: data
       - name: kine
         image: docker.io/rancher/kine:v0.7.2-amd64
         args:
-        - --endpoint=postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
+        - --endpoint=postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
         ports:
         - containerPort: 2379
           name: https
@@ -52,15 +36,17 @@ spec:
         - --service-account-signing-key-file=/sa-signer-cert/tls.key
         - --service-account-key-file=/sa-signer-cert/tls.crt
 
-        - --client-ca-file=/sa-signer-cert/ca.crt
 
         - --enable-garbage-collector=false
-        - --service-account-lookup=false
+        # - --service-account-lookup=false
 
         - --requestheader-username-headers=X-Remote-User
         - --requestheader-group-headers=X-Remote-Group
         - --requestheader-extra-headers-prefix=X-Remote-Extra-
-        - --requestheader-client-ca-file=/parent-requestheaders/client-ca-file
+        - --requestheader-allowed-names=front-proxy-client
+        - --requestheader-client-ca-file=/parent-certs/requestheader-client-ca-file
+        - --client-ca-file=/parent-certs/requestheader-client-ca-file
+        # - --client-ca-file=/parent-certs/client-ca-file
 
         - -v=100
 
@@ -119,13 +105,13 @@ spec:
         volumeMounts:
         - mountPath: /parent-kubeconfig
           name: parent-kubeconfig
-        - mountPath: /parent-requestheaders
-          name: parent-requestheaders
+        - mountPath: /parent-certs
+          name: parent-certs
         - mountPath: /apiserver-cert
           name: apiserver-cert
         - mountPath: /sa-signer-cert
           name: sa-signer-cert
-      terminationGracePeriodSeconds: 5
+      terminationGracePeriodSeconds: 10
       volumes:
       - name: sa-signer-cert
         secret:
@@ -136,8 +122,6 @@ spec:
       - name: parent-kubeconfig
         secret:
           secretName: parent-kubeconfig
-      - name: parent-requestheaders
+      - name: parent-certs
         configMap:
-          name: parent-requestheaders
-      - name: data
-        emptyDir: {}
+          name: parent-certs

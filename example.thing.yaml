@@ -1,0 +1,6 @@
+apiVersion: subnetes.ensure-stack.org/v1alpha1
+kind: Thing
+metadata:
+  name: example
+spec:
+  displayName: fooooooo

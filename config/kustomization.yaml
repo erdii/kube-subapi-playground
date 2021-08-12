@@ -5,6 +5,8 @@ resources:
 - certs/apiserver.cert.yaml
 - certs/client.cert.yaml
 - certs/parent-kubeconfig.secret.yaml
-- certs/parent-requestheaders.configmap.yaml
+- certs/parent-certs.configmap.yaml
+- postgres/deployment.yaml
+- postgres/service.yaml
 - apiserver/deployment.yaml
 - apiserver/service.yaml

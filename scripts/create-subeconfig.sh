@@ -4,9 +4,12 @@ set -euo pipefail
 CLIENT_SECRET_NAME="client-tls"
 OUTPUT="subeconfig"
 
-CLIENT_TLS_KEY="$(kubectl get secret $CLIENT_SECRET_NAME -o 'jsonpath={.data.tls\.key}')"
-CLIENT_TLS_CERT="$(kubectl get secret $CLIENT_SECRET_NAME -o 'jsonpath={.data.tls\.crt}')"
+# CLIENT_TLS_KEY="$(kubectl get secret $CLIENT_SECRET_NAME -o 'jsonpath={.data.tls\.key}')"
+# CLIENT_TLS_CERT="$(kubectl get secret $CLIENT_SECRET_NAME -o 'jsonpath={.data.tls\.crt}')"
 CA_CERT="$(kubectl get secret $CLIENT_SECRET_NAME -o 'jsonpath={.data.ca\.crt}')"
+
+CLIENT_TLS_KEY="$(cat pki/apiserver-kubelet-client.key | base64 -w 0)"
+CLIENT_TLS_CERT="$(cat pki/apiserver-kubelet-client.crt | base64 -w 0)"
 
 echo "Writing $OUTPUT"
 cat > "$OUTPUT" <<EOF

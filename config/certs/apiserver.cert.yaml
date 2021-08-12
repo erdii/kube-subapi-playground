@@ -17,6 +17,8 @@ spec:
   dnsNames:
     - apiserver
     - localhost
+    - subnetes
+    - subnetes.default.svc
   ipAddresses:
     - "127.0.0.1"
   issuerRef:

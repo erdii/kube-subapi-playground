@@ -57,6 +57,13 @@ spec:
         - --enable-garbage-collector=false
         - --service-account-lookup=false
 
+        - --requestheader-username-headers=X-Remote-User
+        - --requestheader-group-headers=X-Remote-Group
+        - --requestheader-extra-headers-prefix=X-Remote-Extra-
+        - --requestheader-client-ca-file=/parent-requestheaders/client-ca-file
+
+        - -v=100
+
         - --authorization-mode=Webhook
         - --authorization-webhook-config-file=/parent-kubeconfig/kubeconfig
 
@@ -112,6 +119,8 @@ spec:
         volumeMounts:
         - mountPath: /parent-kubeconfig
           name: parent-kubeconfig
+        - mountPath: /parent-requestheaders
+          name: parent-requestheaders
         - mountPath: /apiserver-cert
           name: apiserver-cert
         - mountPath: /sa-signer-cert
@@ -127,5 +136,8 @@ spec:
       - name: parent-kubeconfig
         secret:
           secretName: parent-kubeconfig
+      - name: parent-requestheaders
+        configMap:
+          name: parent-requestheaders
       - name: data
         emptyDir: {}
